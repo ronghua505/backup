@@ -1,0 +1,62 @@
+
+读取excel行列内容函数
+Public Function GetCoreInfoFromSheet(SheetName As String, PatCoreCycle() As Type_PatCycle_Info) As Long
+   
+    Dim RowCount As Long
+    Dim ColumnCount As Long
+    Dim CycleExpectValue_Flag As Boolean: CycleExpectValue_Flag = False
+    Dim Cycle_Flag As Boolean: CycleExpectValue_Flag = False
+    Dim CurrentSheetName As String
+    Dim TmpVar As Variant
+    Dim TypePatNumber As Long: TypePatNumber = 0 'count pattern number ,for Type_PatCycle_Info
+    Dim Cycle_counter As Long: Cycle_counter = 0 'count core number ,for Type_PatCycle_Info
+    CurrentSheetName = ActiveSheet.Name
+    Worksheets(SheetName).Activate
+    RowCount = Worksheets(SheetName).UsedRange.Rows.count
+    ColumnCount = Worksheets(SheetName).UsedRange.Columns.count
+    Application.ScreenUpdating = False
+    Dim i As Long, j As Long
+    For i = 1 To RowCount
+        CycleExpectValue_Flag = False
+        Cycle_Flag = False
+        For j = 1 To ColumnCount
+            TmpVar = Worksheets(SheetName).Cells(i, j).Value
+            If InStr(1, TmpVar, "_burst", vbTextCompare) >= 1 Then  'record patset name
+                ReDim Preserve PatCoreCycle(TypePatNumber)
+                PatCoreCycle(TypePatNumber).PatName = TmpVar
+                TypePatNumber = TypePatNumber + 1
+                Cycle_counter = 0
+                Exit For
+            ElseIf InStr(1, TmpVar, "cyclevalue", vbTextCompare) >= 1 And InStr(1, TmpVar, "_burst", vbTextCompare) < 1 Then ' record expect value in pattern, also exclude patset include cyclevalue string
+                 CycleExpectValue_Flag = True
+                 'ReDim Preserve PatCoreCycle(TypePatNumber - 1).CycleValue(ColumnCount - 2)
+            ElseIf InStr(1, TmpVar, "core", vbTextCompare) >= 1 And InStr(1, TmpVar, "_burst", vbTextCompare) < 1 Then ' record expect value in pattern, also exclude patset include core string
+                 Cycle_Flag = True
+                 ReDim Preserve PatCoreCycle(TypePatNumber - 1).CoreInfo(Cycle_counter)
+                 PatCoreCycle(TypePatNumber - 1).CoreInfo(Cycle_counter) = TmpVar
+                 Cycle_counter = Cycle_counter + 1
+                 'ReDim Preserve PatCoreCycle(TypePatNumber - 1).Cycle((ColumnCount - 1) * Cycle_counter - 1)
+            End If
+            If CycleExpectValue_Flag = True And j < ColumnCount Then 'record pattern cycle expect value
+                If Worksheets(SheetName).Cells(i, j + 1).Value <> "" Then
+                    ReDim Preserve PatCoreCycle(TypePatNumber - 1).CycleValue(j - 1)
+                    PatCoreCycle(TypePatNumber - 1).CycleValue(j - 1) = Worksheets(SheetName).Cells(i, j + 1).Value
+                End If
+            End If
+            If Cycle_Flag = True And j < ColumnCount Then  'record pattern cycle number
+                If Worksheets(SheetName).Cells(i, j + 1).Value <> "" Then
+                    ReDim Preserve PatCoreCycle(TypePatNumber - 1).Cycle((Cycle_counter - 1) * (UBound(PatCoreCycle(TypePatNumber - 1).CycleValue) + 1) + j - 1)
+                    'PatCoreCycle(TypePatNumber - 1).Cycle((j - 1) + (ColumnCount - 1) * (Cycle_counter - 1)) = Worksheets(SheetName).Cells(i, j + 1).Value
+                    PatCoreCycle(TypePatNumber - 1).Cycle((Cycle_counter - 1) * (UBound(PatCoreCycle(TypePatNumber - 1).CycleValue) + 1) + j - 1) = Worksheets(SheetName).Cells(i, j + 1).Value
+                End If
+            End If
+        Next j
+    Next i
+    For i = 0 To UBound(PatCoreCycle)
+        If (UBound(PatCoreCycle(i).Cycle) + 1) Mod (UBound(PatCoreCycle(i).CycleValue) + 1) = 0 Then
+        Else
+            MsgBox (PatCoreCycle(i).PatName + "'s cyclevalue can not totally divided by cycle counts ")
+            TheExec.AddOutput PatCoreCycle(i).PatName + "'s cyclevalue can not totally divided by cycle counts "
+        End If
+    Next i
+End Function
